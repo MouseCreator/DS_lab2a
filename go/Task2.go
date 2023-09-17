@@ -49,8 +49,9 @@ func (t *Truck) produce() Item {
 }
 
 type Worker struct {
-	workerName  string
-	itemInHands chan Item
+	workerName string
+	myItem     *Item
+	workTime   int
 }
 
 func (w *Worker) name() string {
@@ -58,16 +59,17 @@ func (w *Worker) name() string {
 }
 
 func (w *Worker) consume(item Item) {
-	w.itemInHands <- item
-	w.transfer(20)
+	w.myItem = &item
 }
 
-func (w *Worker) transfer(durationMillis int) {
-	time.Sleep(time.Duration(durationMillis) * time.Millisecond)
+func (w *Worker) transfer() {
+	time.Sleep(time.Duration(w.workTime) * time.Millisecond)
 }
 
 func (w *Worker) produce() Item {
-	return <-w.itemInHands
+	i := *w.myItem
+	w.myItem = nil
+	return i
 }
 
 func (t *Truck) consume(item Item) {
@@ -97,23 +99,6 @@ func (c ChanBuffer) get() Item {
 	return <-c.ch
 }
 
-func putInBuffer(producer Producer, buffer Buffer, working *bool) {
-	item := producer.produce()
-	fmt.Println(producer.name(), "puts", item.price)
-	buffer.put(item)
-}
-
-func getFromBuffer(consumer Consumer, buffer Buffer, working *bool) {
-	item := buffer.get()
-	fmt.Println(consumer.name(), "gets", item.price)
-	consumer.consume(item)
-}
-
-type Channel struct {
-	p Producer
-	b Buffer
-	c Consumer
-}
 type Counter struct {
 	counterName string
 	count       int
@@ -160,12 +145,12 @@ func (t *Truck) pack(from chan Item, to chan Item) {
 	}
 }
 
-func (w *Worker) work(from chan Item, to chan Item) {
+func (w *Worker) work(fromBuf chan Item, toBuf chan Item) {
 	for {
-		item := <-from
-		w.transfer(100)
+		item := <-fromBuf
+		w.transfer()
 		fmt.Println(w.name(), "transfers", item.price)
-		to <- item
+		toBuf <- item
 	}
 }
 
@@ -183,10 +168,10 @@ func main() {
 
 	const BUFSIZE = 10
 
-	ivanov := Worker{"Ivanov", make(chan Item)}
+	ivanov := Worker{"Ivanov", nil, 10}
 	storageChannel := make(chan Item, BUFSIZE)
 
-	petrov := Worker{"Petrov", make(chan Item)}
+	petrov := Worker{"Petrov", nil, 15}
 	ivanovChannel := make(chan Item, BUFSIZE)
 
 	truck := Truck{}
@@ -197,6 +182,7 @@ func main() {
 
 	group := sync.WaitGroup{}
 	group.Add(5)
+
 	go storage.create(storageChannel)
 	go ivanov.work(storageChannel, ivanovChannel)
 	go petrov.work(ivanovChannel, petrovChannel)
@@ -204,12 +190,10 @@ func main() {
 	go necheporchuk.doCount(truckChannel)
 
 	group.Wait()
+	close(storageChannel)
+	close(ivanovChannel)
+	close(petrovChannel)
+	close(truckChannel)
 	fmt.Println(necheporchuk.getNum())
 	fmt.Println(necheporchuk.getPrice())
-}
-
-func storageMonitor(storage Storage, status *bool) {
-	for storage.itemsLeft > 0 {
-	}
-	*status = false
 }
