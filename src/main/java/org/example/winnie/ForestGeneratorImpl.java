@@ -5,35 +5,67 @@ import java.util.List;
 import java.util.Random;
 
 public class ForestGeneratorImpl implements ForestGenerator {
-    private Random random = new Random();
-
+    private final Random random = new Random();
     @Override
     public Forest generateForest(int targetAreaSizeNodes, int targetAreaNum, int averageProcessTimeMillis) {
         Forest forest = new Forest();
+        int winnieThePoohArea = getArea(targetAreaNum);
         for (int i = 0; i < targetAreaNum; i++) {
             double areaSizeDistribution = 0.25;
             int size = (int) (targetAreaSizeNodes * (1 + random.nextDouble(-areaSizeDistribution, areaSizeDistribution)));
             ForestArea area = generateArea(size, averageProcessTimeMillis);
-            forest.areasList.add(area);
+            if (i == winnieThePoohArea) {
+                hideWinnie(area);
+            }
+            forest.addArea(area);
         }
         return forest;
     }
 
+    private void hideWinnie(ForestArea area) {
+        int nodeId = getArea(area.getSize());
+        hide(area.root(), 0, nodeId);
+    }
+    private int hide(AreaNode node, int id, int target) {
+        if (id == target) {
+            node.hideWinniePooh();
+            return -1;
+        }
+        int nodesVisited = id;
+        for (AreaNode child : node.getConnections()) {
+            int visited = hide(child, id, target);
+            if (visited == -1)
+                return -1;
+            else
+                nodesVisited += visited;
+        }
+        return nodesVisited;
+    }
+
+    private int getArea(int targetAreaNum) {
+        if (targetAreaNum < 1)
+            throw new RuntimeException("Cannot hide Winnie the Pooh in negative area!");
+        if (targetAreaNum == 1)
+            return 0;
+        return random.nextInt(targetAreaNum);
+    }
+
     private ForestArea generateArea(int size, int averageProcessTime) {
         ForestArea forestArea = new ForestArea();
-        List<ForestArea.AreaNode> areaNodes = new ArrayList<>();
-        ForestArea.AreaNode root = createNode(averageProcessTime);
+        List<AreaNode> areaNodes = new ArrayList<>();
+        AreaNode root = createNode(averageProcessTime);
+        forestArea.setSize(size);
         size--;
         areaNodes.add(root);
         forestArea.setRoot(root);
         for (int i = 0; i < size; i++) {
-            ForestArea.AreaNode parent = randomNode(areaNodes);
+            AreaNode parent = randomNode(areaNodes);
             forestArea.addNode(parent, createNode(averageProcessTime));
         }
         return forestArea;
     }
 
-    private ForestArea.AreaNode randomNode(List<ForestArea.AreaNode> areaNodes) {
+    private AreaNode randomNode(List<AreaNode> areaNodes) {
         if (areaNodes.isEmpty())
             throw new RuntimeException("Empty area nodes list in Forest Generator");
         if (areaNodes.size() == 1)
@@ -41,8 +73,8 @@ public class ForestGeneratorImpl implements ForestGenerator {
         return areaNodes.get(random.nextInt(areaNodes.size()));
     }
 
-    private static ForestArea.AreaNode createNode(int averageProcessTime) {
-        return new ForestArea.AreaNode(averageProcessTime);
+    private static AreaNode createNode(int averageProcessTime) {
+        return new AreaNode(averageProcessTime);
     }
 
 
