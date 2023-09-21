@@ -13,6 +13,7 @@ type Item struct {
 
 type Storage struct {
 	itemsLeft int
+	mutex     sync.Mutex
 }
 
 func (s *Storage) name() string {
@@ -79,26 +80,6 @@ func (t *Truck) consume(item Item) {
 	t.mutex.Unlock()
 }
 
-func (s *Storage) produce() Item {
-	if s.itemsLeft < 1 {
-		return Item{-1}
-	}
-	s.itemsLeft--
-	return Item{rand.Intn(100)}
-}
-
-type ChanBuffer struct {
-	ch chan Item
-}
-
-func (c ChanBuffer) put(item Item) {
-	c.ch <- item
-}
-
-func (c ChanBuffer) get() Item {
-	return <-c.ch
-}
-
 type Counter struct {
 	counterName string
 	count       int
@@ -111,14 +92,14 @@ func (c *Counter) name() string {
 }
 
 func (c *Counter) consume(item Item) {
+	c.mutex.Lock()
 	c.add(item.price)
+	c.mutex.Unlock()
 }
 
 func (c *Counter) add(val int) {
-	c.mutex.Lock()
 	c.count += val
 	c.numItems++
-	c.mutex.Unlock()
 }
 
 func (c *Counter) getPrice() int {
@@ -128,92 +109,132 @@ func (c *Counter) getNum() int {
 	return c.numItems
 }
 
-func (s *Storage) create(to chan Item, isDone chan int) {
+func (s *Storage) produce() Item {
+	s.mutex.Lock()
+	if s.itemsLeft < 1 {
+		return Item{-1}
+	}
+	s.itemsLeft--
+	s.mutex.Unlock()
+	return Item{rand.Intn(100)}
+}
+func (s *Storage) create(to BufferS) {
 	for s.itemsLeft > 0 {
 		item := s.produce()
-		fmt.Println(s.name(), "produces", item.price)
-		to <- item
+		//fmt.Println(s.name(), "produces", item.price)
+		to.buffer <- item
 	}
-	isDone <- 0
+	fmt.Println("Storage is empty!")
+	to.done(0)
 }
 
-func (t *Truck) pack(from chan Item, to chan Item, isDone chan int) {
+func (t *Truck) pack(from BufferS, to BufferS) {
 	for {
 		select {
-		case item := <-from:
+		case item := <-from.buffer:
 			t.arr = append(t.arr, item)
-			fmt.Println(t.name(), "packs", item.price)
-			to <- item
-		case done := <-isDone:
-			isDone <- done
-			break
+			//fmt.Println(t.name(), "packs", item.price)
+			to.buffer <- item
+		default:
+			select {
+			case done := <-from.isDone:
+				to.done(done)
+				break
+			default:
+				continue
+			}
 		}
 	}
 }
 
-func (w *Worker) work(fromBuf chan Item, toBuf chan Item, isDone chan int) {
+func (w *Worker) work(fromBuf BufferS, toBuf BufferS) {
 	for {
 		select {
-		case item := <-fromBuf:
+		case item := <-fromBuf.buffer:
 			w.transfer()
-			fmt.Println(w.name(), "transfers", item.price)
-			toBuf <- item
-		case done := <-isDone:
-			isDone <- done
-			break
+			//fmt.Println(w.name(), "transfers", item.price)
+			toBuf.buffer <- item
+		default:
+			select {
+			case done := <-fromBuf.isDone:
+				toBuf.done(done)
+				break
+			default:
+				continue
+			}
 		}
-
 	}
 }
 
-func (c *Counter) doCount(from chan Item, isDone chan int, wg *sync.WaitGroup) {
+func (c *Counter) doCount(from BufferS, group *sync.WaitGroup) {
 	for {
 		select {
-		case item := <-from:
+		case item := <-from.buffer:
 			fmt.Println(c.name(), "counts", item.price)
 			c.consume(item)
-		case <-isDone:
-			wg.Done()
-			break
-		}
+		default:
+			select {
+			case <-from.isDone:
+				group.Done()
+				return
+			default:
+				continue
+			}
 
+		}
 	}
+}
+
+type BufferS struct {
+	buffer chan Item
+	isDone chan int
+	group  *sync.WaitGroup
+}
+
+func (b *BufferS) close() {
+	close(b.buffer)
+	close(b.isDone)
+}
+func (b *BufferS) done(v int) {
+	b.isDone <- v
+	b.group.Done()
+}
+
+func createChannel(group *sync.WaitGroup) BufferS {
+	const BufferSize = 10
+	return BufferS{make(chan Item, BufferSize), make(chan int), group}
 }
 
 func main() {
 	//Storage -> Ivanov -> Petrov -> Truck -> Necheporchuk
-	storage := Storage{20}
-
-	const BUFSIZE = 10
-
-	isDoneChannel := make(chan int)
-
-	ivanov := Worker{"Ivanov", nil, 10}
-	storageChannel := make(chan Item, BUFSIZE)
-
-	petrov := Worker{"Petrov", nil, 15}
-	ivanovChannel := make(chan Item, BUFSIZE)
-
-	truck := Truck{}
-	petrovChannel := make(chan Item, BUFSIZE)
-
-	necheporchuk := Counter{"Necheporhuck", 0, 0, sync.Mutex{}}
-	truckChannel := make(chan Item, BUFSIZE)
+	storage := Storage{20, sync.Mutex{}}
 
 	group := sync.WaitGroup{}
-	group.Add(1)
+	group.Add(5)
 
-	go storage.create(storageChannel, isDoneChannel)
-	go ivanov.work(storageChannel, ivanovChannel, isDoneChannel)
-	go petrov.work(ivanovChannel, petrovChannel, isDoneChannel)
-	go truck.pack(petrovChannel, truckChannel, isDoneChannel)
-	go necheporchuk.doCount(truckChannel, isDoneChannel, &group)
+	ivanov := Worker{"Ivanov", nil, 10}
+	storageChannel := createChannel(&group)
+
+	petrov := Worker{"Petrov", nil, 15}
+	ivanovChannel := createChannel(&group)
+
+	truck := Truck{}
+	petrovChannel := createChannel(&group)
+
+	necheporchuk := Counter{"Necheporchuk", 0, 0, sync.Mutex{}}
+	truckChannel := createChannel(&group)
+
+	go storage.create(storageChannel)
+	go ivanov.work(storageChannel, ivanovChannel)
+	go petrov.work(ivanovChannel, petrovChannel)
+	go truck.pack(petrovChannel, truckChannel)
+	go necheporchuk.doCount(truckChannel, &group)
 
 	group.Wait()
-	close(storageChannel)
-	close(ivanovChannel)
-	close(petrovChannel)
-	close(truckChannel)
-	fmt.Println(necheporchuk.getNum())
-	fmt.Println(necheporchuk.getPrice())
+	storageChannel.close()
+	ivanovChannel.close()
+	petrovChannel.close()
+	truckChannel.close()
+	fmt.Println("Total items:", necheporchuk.getNum())
+	fmt.Println("Total price:", necheporchuk.getPrice())
 }
