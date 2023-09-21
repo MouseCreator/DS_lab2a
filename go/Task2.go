@@ -14,45 +14,28 @@ type Item struct {
 type Storage struct {
 	itemsLeft int
 	mutex     sync.Mutex
+	prints    bool
 }
 
 func (s *Storage) name() string {
 	return "Storage"
 }
 
-type Producer interface {
-	produce() Item
-	name() string
-}
-
-type Buffer interface {
-	put(item Item)
-	get() Item
-}
-
-type Consumer interface {
-	consume(item Item)
-	name() string
-}
-
 type Truck struct {
-	arr       []Item
-	lastAdded chan Item
-	mutex     sync.Mutex
+	arr    []Item
+	mutex  sync.Mutex
+	prints bool
 }
 
 func (t *Truck) name() string {
 	return "Truck"
 }
 
-func (t *Truck) produce() Item {
-	return <-t.lastAdded
-}
-
 type Worker struct {
 	workerName string
 	myItem     *Item
 	workTime   int
+	prints     bool
 }
 
 func (w *Worker) name() string {
@@ -74,7 +57,6 @@ func (w *Worker) produce() Item {
 }
 
 func (t *Truck) consume(item Item) {
-	t.lastAdded <- item
 	t.mutex.Lock()
 	t.arr = append(t.arr, item)
 	t.mutex.Unlock()
@@ -85,6 +67,7 @@ type Counter struct {
 	count       int
 	numItems    int
 	mutex       sync.Mutex
+	prints      bool
 }
 
 func (c *Counter) name() string {
@@ -121,7 +104,9 @@ func (s *Storage) produce() Item {
 func (s *Storage) create(to BufferS) {
 	for s.itemsLeft > 0 {
 		item := s.produce()
-		//fmt.Println(s.name(), "produces", item.price)
+		if s.prints {
+			fmt.Println(s.name(), "produces", item.price)
+		}
 		to.buffer <- item
 	}
 	fmt.Println("Storage is empty!")
@@ -133,13 +118,15 @@ func (t *Truck) pack(from BufferS, to BufferS) {
 		select {
 		case item := <-from.buffer:
 			t.arr = append(t.arr, item)
-			//fmt.Println(t.name(), "packs", item.price)
+			if t.prints {
+				fmt.Println(t.name(), "packs", item.price)
+			}
 			to.buffer <- item
 		default:
 			select {
 			case done := <-from.isDone:
 				to.done(done)
-				break
+				return
 			default:
 				continue
 			}
@@ -152,7 +139,9 @@ func (w *Worker) work(fromBuf BufferS, toBuf BufferS) {
 		select {
 		case item := <-fromBuf.buffer:
 			w.transfer()
-			//fmt.Println(w.name(), "transfers", item.price)
+			if w.prints {
+				fmt.Println(w.name(), "transfers", item.price)
+			}
 			toBuf.buffer <- item
 		default:
 			select {
@@ -170,7 +159,9 @@ func (c *Counter) doCount(from BufferS, group *sync.WaitGroup) {
 	for {
 		select {
 		case item := <-from.buffer:
-			fmt.Println(c.name(), "counts", item.price)
+			if c.prints {
+				fmt.Println(c.name(), "counts", item.price)
+			}
 			c.consume(item)
 		default:
 			select {
@@ -207,21 +198,22 @@ func createChannel(group *sync.WaitGroup) BufferS {
 
 func main() {
 	//Storage -> Ivanov -> Petrov -> Truck -> Necheporchuk
-	storage := Storage{20, sync.Mutex{}}
 
 	group := sync.WaitGroup{}
 	group.Add(5)
 
-	ivanov := Worker{"Ivanov", nil, 10}
+	storage := Storage{20, sync.Mutex{}, true}
+
+	ivanov := Worker{"Ivanov", nil, 10, true}
 	storageChannel := createChannel(&group)
 
-	petrov := Worker{"Petrov", nil, 15}
+	petrov := Worker{"Petrov", nil, 15, true}
 	ivanovChannel := createChannel(&group)
 
-	truck := Truck{}
+	truck := Truck{make([]Item, 0), sync.Mutex{}, true}
 	petrovChannel := createChannel(&group)
 
-	necheporchuk := Counter{"Necheporchuk", 0, 0, sync.Mutex{}}
+	necheporchuk := Counter{"Necheporchuk", 0, 0, sync.Mutex{}, true}
 	truckChannel := createChannel(&group)
 
 	go storage.create(storageChannel)
