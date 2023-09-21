@@ -128,37 +128,55 @@ func (c *Counter) getNum() int {
 	return c.numItems
 }
 
-func (s *Storage) create(to chan Item) {
+func (s *Storage) create(to chan Item, isDone chan int) {
 	for s.itemsLeft > 0 {
 		item := s.produce()
 		fmt.Println(s.name(), "produces", item.price)
 		to <- item
 	}
+	isDone <- 0
 }
 
-func (t *Truck) pack(from chan Item, to chan Item) {
+func (t *Truck) pack(from chan Item, to chan Item, isDone chan int) {
 	for {
-		item := <-from
-		t.arr = append(t.arr, item)
-		fmt.Println(t.name(), "packs", item.price)
-		to <- item
+		select {
+		case item := <-from:
+			t.arr = append(t.arr, item)
+			fmt.Println(t.name(), "packs", item.price)
+			to <- item
+		case done := <-isDone:
+			isDone <- done
+			break
+		}
 	}
 }
 
-func (w *Worker) work(fromBuf chan Item, toBuf chan Item) {
+func (w *Worker) work(fromBuf chan Item, toBuf chan Item, isDone chan int) {
 	for {
-		item := <-fromBuf
-		w.transfer()
-		fmt.Println(w.name(), "transfers", item.price)
-		toBuf <- item
+		select {
+		case item := <-fromBuf:
+			w.transfer()
+			fmt.Println(w.name(), "transfers", item.price)
+			toBuf <- item
+		case done := <-isDone:
+			isDone <- done
+			break
+		}
+
 	}
 }
 
-func (c *Counter) doCount(from chan Item) {
+func (c *Counter) doCount(from chan Item, isDone chan int, wg *sync.WaitGroup) {
 	for {
-		item := <-from
-		fmt.Println(c.name(), "counts", item.price)
-		c.consume(item)
+		select {
+		case item := <-from:
+			fmt.Println(c.name(), "counts", item.price)
+			c.consume(item)
+		case <-isDone:
+			wg.Done()
+			break
+		}
+
 	}
 }
 
@@ -167,6 +185,8 @@ func main() {
 	storage := Storage{20}
 
 	const BUFSIZE = 10
+
+	isDoneChannel := make(chan int)
 
 	ivanov := Worker{"Ivanov", nil, 10}
 	storageChannel := make(chan Item, BUFSIZE)
@@ -181,13 +201,13 @@ func main() {
 	truckChannel := make(chan Item, BUFSIZE)
 
 	group := sync.WaitGroup{}
-	group.Add(5)
+	group.Add(1)
 
-	go storage.create(storageChannel)
-	go ivanov.work(storageChannel, ivanovChannel)
-	go petrov.work(ivanovChannel, petrovChannel)
-	go truck.pack(petrovChannel, truckChannel)
-	go necheporchuk.doCount(truckChannel)
+	go storage.create(storageChannel, isDoneChannel)
+	go ivanov.work(storageChannel, ivanovChannel, isDoneChannel)
+	go petrov.work(ivanovChannel, petrovChannel, isDoneChannel)
+	go truck.pack(petrovChannel, truckChannel, isDoneChannel)
+	go necheporchuk.doCount(truckChannel, isDoneChannel, &group)
 
 	group.Wait()
 	close(storageChannel)
