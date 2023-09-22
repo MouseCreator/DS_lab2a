@@ -8,10 +8,10 @@ public class Main {
 
         int[] fighters = energyGenerator.generate(N);
 
-        FistRoadFight fistRoadFight = new FistRoadFight();
+        WinnerSelector fistRoadFight = new FistRoadFight();
         int winner = fistRoadFight.selectWinner(fighters);
 
-        String palace = winner < N/2 ? "Guan Yin" : "Guan-Yan";
+        String palace = winner < N >>> 1 ? "Guan Yin" : "Guan-Yan";
 
         System.out.printf("The winner is fighter number %d from %s with Qi energy of %d!", winner, palace, fighters[winner]);
     }
