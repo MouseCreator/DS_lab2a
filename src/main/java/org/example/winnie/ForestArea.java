@@ -9,8 +9,12 @@ import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class ForestArea implements Iterable<AreaNode> {
+    public ForestArea(int id) {
+        this.id = id;
+    }
 
-    public AreaNode root = null;
+    private final int id;
+    AreaNode root = null;
     public AreaNode root() {
         return root;
     }
@@ -47,6 +51,10 @@ public class ForestArea implements Iterable<AreaNode> {
                 return toReturn;
             }
         };
+    }
+
+    public int getId() {
+        return id;
     }
 }
 

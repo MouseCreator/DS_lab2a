@@ -5,23 +5,29 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class CustomTaskPortfolioExecutor<V> implements TaskPortfolioExecutor<V>{
     private Thread[] threads;
-    private final LinkedBlockingQueue<Callable<V>> tasks = new LinkedBlockingQueue<>();
-    private final LinkedBlockingQueue<V> results = new LinkedBlockingQueue<>();
+
+    private record TaskResultPair<V>(Callable<V> callableTask, Result<V> result) { }
+    private final LinkedBlockingQueue<TaskResultPair<V>> tasks = new LinkedBlockingQueue<>();
+
     @Override
-    public void execute(Callable<V> task) {
-        tasks.add(task);
+    public Result<V> execute(Callable<V> task) {
+         Result<V> result = new Result<>();
+         TaskResultPair<V> pair = new TaskResultPair<>(task, result);
+         tasks.add(pair);
+         return result;
     }
 
     private void createThreads(int numThreads) {
         threads = new Thread[numThreads];
         for (int i = 0; i < numThreads; i++) {
             threads[i] = new Thread(()->{
-                Callable<V> task;
+                TaskResultPair<V> taskPair;
                 while (!Thread.interrupted()) {
-                    if ((task = tasks.poll()) != null) {
+                    if ((taskPair = tasks.poll()) != null) {
                         try {
+                            Callable<V> task = taskPair.callableTask();
                             V result = task.call();
-                            results.add(result);
+                            taskPair.result().set(result);
                             break;
                         } catch (Exception e) {
                             throw new RuntimeException(e);
@@ -32,10 +38,6 @@ public class CustomTaskPortfolioExecutor<V> implements TaskPortfolioExecutor<V>{
         }
     }
 
-    @Override
-    public V getResult() {
-        return results.poll();
-    }
 
     @Override
     public void stop() {

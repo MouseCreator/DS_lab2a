@@ -13,7 +13,7 @@ public class ForestGeneratorImpl implements ForestGenerator {
         for (int i = 0; i < targetAreaNum; i++) {
             double areaSizeDistribution = 0.25;
             int size = (int) (targetAreaSizeNodes * (1 + random.nextDouble(-areaSizeDistribution, areaSizeDistribution)));
-            ForestArea area = generateArea(size, averageProcessTimeMillis);
+            ForestArea area = generateArea(i, size, averageProcessTimeMillis);
             if (i == winnieThePoohArea) {
                 hideWinnie(area);
             }
@@ -50,8 +50,8 @@ public class ForestGeneratorImpl implements ForestGenerator {
         return random.nextInt(targetAreaNum);
     }
 
-    private ForestArea generateArea(int size, int averageProcessTime) {
-        ForestArea forestArea = new ForestArea();
+    private ForestArea generateArea(int id, int size, int averageProcessTime) {
+        ForestArea forestArea = new ForestArea(id);
         List<AreaNode> areaNodes = new ArrayList<>();
         AreaNode root = createNode(averageProcessTime);
         forestArea.setSize(size);
