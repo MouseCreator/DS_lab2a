@@ -5,9 +5,12 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class CustomTaskPortfolioExecutor<V> implements TaskPortfolioExecutor<V>{
     private Thread[] threads;
-
     private record TaskResultPair<V>(Callable<V> callableTask, Result<V> result) { }
     private final LinkedBlockingQueue<TaskResultPair<V>> tasks = new LinkedBlockingQueue<>();
+
+    public CustomTaskPortfolioExecutor(int numThreads) {
+        createThreads(numThreads);
+    }
 
     @Override
     public Result<V> execute(Callable<V> task) {
@@ -22,16 +25,13 @@ public class CustomTaskPortfolioExecutor<V> implements TaskPortfolioExecutor<V>{
         for (int i = 0; i < numThreads; i++) {
             threads[i] = new Thread(()->{
                 TaskResultPair<V> taskPair;
-                while (!Thread.interrupted()) {
-                    if ((taskPair = tasks.poll()) != null) {
-                        try {
-                            Callable<V> task = taskPair.callableTask();
-                            V result = task.call();
-                            taskPair.result().set(result);
-                            break;
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }
+                while ((taskPair = tasks.poll()) != null && !Thread.interrupted()) {
+                    try {
+                        Callable<V> task = taskPair.callableTask();
+                        V result = task.call();
+                        taskPair.result().set(result);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
                     }
                 }
             });
@@ -43,6 +43,13 @@ public class CustomTaskPortfolioExecutor<V> implements TaskPortfolioExecutor<V>{
     public void stop() {
         for (Thread thread : threads) {
             thread.interrupt();
+        }
+    }
+
+    @Override
+    public void start() {
+        for (Thread thread : threads) {
+            thread.start();
         }
     }
 }

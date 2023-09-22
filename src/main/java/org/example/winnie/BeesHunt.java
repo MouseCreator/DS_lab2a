@@ -22,8 +22,16 @@ public class BeesHunt {
             resultList.add(result);
         }
         int winnieId = -1;
+
+        taskPortfolioExecutor.start();
+
         for (Result<Integer> result : resultList) {
-            int areaId = result.get();
+            int areaId;
+            try {
+                areaId = result.get();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
             if (areaId != -1) {
                 winnieId = areaId;
                 break;

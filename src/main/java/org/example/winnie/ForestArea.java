@@ -1,7 +1,5 @@
 package org.example.winnie;
 
-import org.example.util.RandomService;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -82,16 +80,8 @@ class AreaNode {
     public boolean hasWinniePooh() {
         return hasWinniePooh;
     }
-
-    public void addConnection(AreaNode node) {
-        leedsTo.add(node);
-    }
     public List<AreaNode> getConnections() {
         return leedsTo;
     }
 
-    public AreaNode randomChild() {
-        RandomService r = new RandomService();
-        return leedsTo.get(r.randomInt(leedsTo.size()));
-    }
 }
