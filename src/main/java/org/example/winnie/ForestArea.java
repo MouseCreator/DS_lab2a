@@ -19,7 +19,7 @@ public class ForestArea implements Iterable<AreaNode> {
     public void setRoot(AreaNode root) {
         this.root = root;
     }
-    public void addNode(AreaNode node, AreaNode parent) {
+    public void addNode(AreaNode parent, AreaNode node) {
         parent.getConnections().add(node);
     }
     private int size = 0;
@@ -61,11 +61,6 @@ class AreaNode {
     private final int processTime;
     private boolean hasWinniePooh;
     private final List<AreaNode> leedsTo;
-    public AreaNode(int processTime, boolean hasWinniePooh) {
-        this.processTime = processTime;
-        this.hasWinniePooh = hasWinniePooh;
-        leedsTo = new ArrayList<>();
-    }
     public AreaNode(int processTime) {
         this.processTime = processTime;
         this.hasWinniePooh = false;

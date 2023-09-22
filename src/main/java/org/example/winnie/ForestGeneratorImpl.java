@@ -31,13 +31,13 @@ public class ForestGeneratorImpl implements ForestGenerator {
             node.hideWinniePooh();
             return -1;
         }
-        int nodesVisited = id;
+        int nodesVisited = id + 1;
         for (AreaNode child : node.getConnections()) {
-            int visited = hide(child, id, target);
+            int visited = hide(child, nodesVisited, target);
             if (visited == -1)
                 return -1;
             else
-                nodesVisited += visited;
+                nodesVisited = visited;
         }
         return nodesVisited;
     }

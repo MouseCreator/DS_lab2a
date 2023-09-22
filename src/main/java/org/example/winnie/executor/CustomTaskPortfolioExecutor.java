@@ -44,6 +44,7 @@ public class CustomTaskPortfolioExecutor<V> implements TaskPortfolioExecutor<V>{
         for (Thread thread : threads) {
             thread.interrupt();
         }
+        tasks.clear();
     }
 
     @Override
