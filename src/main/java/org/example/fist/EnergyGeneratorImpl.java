@@ -7,10 +7,10 @@ public class EnergyGeneratorImpl implements EnergyGenerator {
 
 
     @Override
-    public int[] generate(int n) {
+    public int[] generate(int n, int limit) {
         int[] result = new int[n];
         for (int i = 0; i < n; i++) {
-            result[i] = random.nextInt(10_000);
+            result[i] = random.nextInt(limit);
         }
         return result;
     }

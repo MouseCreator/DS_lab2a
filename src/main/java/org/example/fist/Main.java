@@ -5,8 +5,9 @@ public class Main {
         EnergyGenerator energyGenerator = new EnergyGeneratorImpl();
 
         int N = 10_000_000;
+        int energyLimit = 10_000;
 
-        int[] fighters = energyGenerator.generate(N);
+        int[] fighters = energyGenerator.generate(N, energyLimit);
 
         WinnerSelector fistRoadFight = new FistRoadFight();
         int winner = fistRoadFight.selectWinner(fighters);
