@@ -10,7 +10,7 @@ public class EnergyGeneratorImpl implements EnergyGenerator {
     public int[] generate(int n) {
         int[] result = new int[n];
         for (int i = 0; i < n; i++) {
-            result[i] = random.nextInt(100);
+            result[i] = random.nextInt(10_000);
         }
         return result;
     }
