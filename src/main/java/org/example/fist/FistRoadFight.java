@@ -4,11 +4,12 @@ import java.util.Random;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveTask;
 
-public class FistRoadFight {
+public class FistRoadFight implements WinnerSelector {
 
     private final Random random = new Random();
 
-    int selectWinner(int[] input) {
+    @Override
+    public int selectWinner(int[] input) {
         ForkJoinPool pool = ForkJoinPool.commonPool();
         return pool.invoke(new MaxFinderTask(input, 0, input.length - 1));
     }
