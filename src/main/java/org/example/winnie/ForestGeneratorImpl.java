@@ -9,11 +9,11 @@ public class ForestGeneratorImpl implements ForestGenerator {
     @Override
     public Forest generateForest(int targetAreaSizeNodes, int targetAreaNum, int averageProcessTimeMillis) {
         Forest forest = new Forest();
-        int winnieThePoohArea = getArea(targetAreaNum);
+        int winnieThePoohArea = generateAreaNum(targetAreaNum);
         for (int i = 0; i < targetAreaNum; i++) {
             double areaSizeDistribution = 0.25;
             int size = (int) (targetAreaSizeNodes * (1 + random.nextDouble(-areaSizeDistribution, areaSizeDistribution)));
-            ForestArea area = generateArea(i, size, averageProcessTimeMillis);
+            ForestArea area = generateAreaNum(i, size, averageProcessTimeMillis);
             if (i == winnieThePoohArea) {
                 hideWinnie(area);
             }
@@ -23,7 +23,7 @@ public class ForestGeneratorImpl implements ForestGenerator {
     }
 
     private void hideWinnie(ForestArea area) {
-        int nodeId = getArea(area.getSize());
+        int nodeId = generateAreaNum(area.getSize());
         hide(area.root(), 0, nodeId);
     }
     private int hide(AreaNode node, int id, int target) {
@@ -42,7 +42,7 @@ public class ForestGeneratorImpl implements ForestGenerator {
         return nodesVisited;
     }
 
-    private int getArea(int targetAreaNum) {
+    private int generateAreaNum(int targetAreaNum) {
         if (targetAreaNum < 1)
             throw new RuntimeException("Cannot hide Winnie the Pooh in negative area!");
         if (targetAreaNum == 1)
@@ -50,7 +50,7 @@ public class ForestGeneratorImpl implements ForestGenerator {
         return random.nextInt(targetAreaNum);
     }
 
-    private ForestArea generateArea(int id, int size, int averageProcessTime) {
+    private ForestArea generateAreaNum(int id, int size, int averageProcessTime) {
         ForestArea forestArea = new ForestArea(id);
         List<AreaNode> areaNodes = new ArrayList<>();
         AreaNode root = createNode(averageProcessTime);

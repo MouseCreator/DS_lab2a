@@ -11,7 +11,7 @@ public class Main {
 
         TaskPortfolioExecutor<Integer> executor = new CustomTaskPortfolioExecutor<>(Runtime.getRuntime().availableProcessors()-1);
 
-        BeesHunt hunt = new BeesHunt(executor);
+        BeesHunt hunt = new BeesHuntImpl(executor);
 
         int winnieAreaId = hunt.find(forest);
 
